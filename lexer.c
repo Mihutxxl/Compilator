@@ -8,14 +8,14 @@
 
 //Enum for the different token types
 typedef enum {
-    TOKEN_IDENTIFIER, TOKEN_NUMBER, TOKEN_STRING, TOKEN_PLUS, TOKEN_MINUS,
+    TOKEN_IDENTIFIER, TOKEN_NUMBER_ZEC, TOKEN_STRING, TOKEN_PLUS, TOKEN_MINUS,
     TOKEN_MULTIPLY, TOKEN_DIVIDE, TOKEN_ASSIGN, TOKEN_SEMICOLON,
     TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACE, TOKEN_RBRACE,
-    TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_COMMENT, TOKEN_ERROR, TOKEN_EOF,
-    TOKEN_LESS, TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL,
-    TOKEN_EQUAL, TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTYLINECOMMENT,
+    TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_ERROR, TOKEN_EOF, TOKEN_LESS, 
+    TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL, TOKEN_EQUAL, 
+    TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTILINECOMMENT,
     TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR, TOKEN_PLUS_1,
-    TOKEN_MINUS_1
+    TOKEN_MINUS_1, TOKEN_DOT, TOKEN_NUMBER_HEX, TOKEN_NUMBER_OCT
 } TokenType;
 
 //Struct to represent a token
@@ -33,6 +33,16 @@ int is_keyword(const char *str) {
         if(strcmp(str,keywords[i]) == 0) return 1;  //Return 1 if keyword
     }
     return 0;   //Return 0 if not keyword
+}
+
+// Helper function to check if a character is a hexadecimal digit
+int is_hex_digit(char c) {
+    return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+// Helper function to check if a character is an octal digit
+int is_octal_digit(char c) {
+    return c >= '0' && c <= '7';
 }
 
 //Function to retrieve the next token from the input string
@@ -63,12 +73,31 @@ Token get_token(const char **input) {
     } else if(isdigit(**input)) {
         // Handle numbers (digits only)
         int i = 0;
-        // Continue adding digits to token value
-        while(isdigit(**input)) {
-            token.value[i++] = *(*input)++;
+        // Hexadecimal: starts with '0x'
+        if(**input == '0' && (*(*input + 1) == 'x' || *(*input + 1) == 'X')) {
+            token.value[i++] = *(*input)++; // '0'
+            token.value[i++] = *(*input)++; //'x' or 'X'
+            if(is_hex_digit(**input)) {
+                while(is_hex_digit(**input)) {
+                    token.value[i++] = *(*input)++;
+                }
+                token.type = TOKEN_NUMBER_HEX;
+            } else {
+                token.type = TOKEN_ERROR;
+            }
+        } else if(**input == '0') { // Octal: starts with '0'
+            token.value[i++] = *(*input)++; // '0'
+            while(is_octal_digit(**input)) {
+                token.value[i++] = *(*input)++;
+            }
+            token.type = TOKEN_NUMBER_OCT;
+        } else if(**input >= '1' && **input <='9') {
+            while(isdigit(**input)) {
+                token.value[i++] = *(*input)++;
+            }
+            token.type = TOKEN_NUMBER_ZEC;
         }
-        token.value[i] = '\0';  // Null-terminate the string
-        token.type = TOKEN_NUMBER;  // Token is a number
+        token.value[i++] = '\0';
     } else if(**input == '"') {
         // Handle strings (delimited by double quotes)
         int i = 0;
@@ -143,7 +172,7 @@ Token get_token(const char **input) {
                 }
             }
             token.value[i] = '\0';  // Null-terminate the string
-            token.type = TOKEN_MULTYLINECOMMENT;    // Token is a multi-line comment
+            token.type = TOKEN_MULTILINECOMMENT;    // Token is a multi-line comment
         }
         else {
             // Just a division operator
@@ -243,8 +272,8 @@ Token get_token(const char **input) {
     // Handle other single-character tokens (operators, parentheses, etc.)
     else {
         switch (**input) {
-            case '+': token.type = TOKEN_PLUS; break;
-            case '-': token.type = TOKEN_MINUS; break;
+            //case '+': token.type = TOKEN_PLUS; break;
+            //case '-': token.type = TOKEN_MINUS; break;
             case '*': token.type = TOKEN_MULTIPLY; break;
             //case '=': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_EQUAL) : TOKEN_ASSIGN; break;
             //case '<': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_LESSEQUAL) : TOKEN_LESS; break;
@@ -256,6 +285,7 @@ Token get_token(const char **input) {
             case '{': token.type = TOKEN_LBRACE; break;
             case '}': token.type = TOKEN_RBRACE; break;
             case ',': token.type = TOKEN_COMMA; break;
+            case '.': token.type = TOKEN_DOT; break; 
             default: token.type = TOKEN_ERROR; break;   // Unknown character
         }
         token.value[0] = **input;   // Store the character
