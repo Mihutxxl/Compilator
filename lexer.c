@@ -14,7 +14,8 @@ typedef enum {
     TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_COMMENT, TOKEN_ERROR, TOKEN_EOF,
     TOKEN_LESS, TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL,
     TOKEN_EQUAL, TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTYLINECOMMENT,
-    TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR
+    TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR, TOKEN_PLUS_1,
+    TOKEN_MINUS_1
 } TokenType;
 
 //Struct to represent a token
@@ -215,6 +216,28 @@ Token get_token(const char **input) {
             token.value[0] = *(*input)++;
             token.value[1] = '\0';  // Null-terminate the string
             token.type = TOKEN_ERROR;
+        }
+    } else if(**input == '+') {
+        if(*(*input + 1) == '+') {  // ++ operator
+            token.value[0] = *(*input)++;
+            token.value[1] = *(*input)++;
+            token.value[2] = '\0';  // Null-terminate the string
+            token.type = TOKEN_PLUS_1;
+        } else {    // + operator
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';  // Null-terminate the string
+            token.type = TOKEN_PLUS;
+        }
+    } else if(**input == '-') {
+        if(*(*input + 1) == '-') {  // -- operator
+            token.value[0] = *(*input)++;
+            token.value[1] = *(*input)++;
+            token.value[2] = '\0';  // Null-terminate the string
+            token.type = TOKEN_PLUS_1;
+        } else {    // - operator
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';  // Null-terminate the string
+            token.type = TOKEN_PLUS;
         }
     }
     // Handle other single-character tokens (operators, parentheses, etc.)
