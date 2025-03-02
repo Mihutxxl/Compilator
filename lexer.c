@@ -16,7 +16,8 @@ typedef enum {
     TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL, TOKEN_EQUAL, 
     TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTILINECOMMENT,
     TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR, TOKEN_PLUS_1,
-    TOKEN_MINUS_1, TOKEN_DOT, TOKEN_NUMBER_HEX, TOKEN_NUMBER_OCT
+    TOKEN_MINUS_1, TOKEN_DOT, TOKEN_NUMBER_HEX, TOKEN_NUMBER_OCT,
+    TOKEN_LBRACKET, TOKEN_RBRACKET
 } TokenType;
 
 //Struct to represent a token
@@ -277,6 +278,8 @@ Token get_token(const char **input) {
             case ';': token.type = TOKEN_SEMICOLON; break;
             case '(': token.type = TOKEN_LPAREN; break;
             case ')': token.type = TOKEN_RPAREN; break;
+            case '[': token.type = TOKEN_LBRACKET; break;
+            case ']': token.type = TOKEN_RBRACKET; break;
             case '{': token.type = TOKEN_LBRACE; break;
             case '}': token.type = TOKEN_RBRACE; break;
             case ',': token.type = TOKEN_COMMA; break;
@@ -292,22 +295,23 @@ Token get_token(const char **input) {
 
 // Function to read the entire content of a file into a string
 char *read_file(const char *filename){
-    FILE *file = fopen(filename, "r");  // Open the file in read mode
+    FILE *file = fopen(filename, "rb");  // Open the file in read mode
     
     if(!file) {
         perror("Error opening file\n"); // Print error if file cannot be opened
         exit(-1);
     }
     // Find the file length
-    fseek(file, 0, SEEK_END);
+    fseek(file, 0, SEEK_END); 
     long length = ftell(file);
-    fseek(file, 0,SEEK_SET);
+    fseek(file, 0, SEEK_SET);
     // Allocate memory for the file content
-    char *buffer = malloc(length + 1);
+    char *buffer = (char *)malloc(length + 1);
     if(!buffer){
         perror("Memory allocation failure\n");  // Print error if memory allocation fails
         exit(-1);
     }
+    
     // Read file content into buffer
     fread(buffer, 1, length, file);
     buffer[length] = '\0';  // Null-terminate the string
@@ -325,6 +329,7 @@ int main(int argc, char *argv[]) {
 
     // Read the source code from the given file
     char *source = read_file(argv[1]);
+    
     const char *input = source; // Pointer to traverse the source code
     Token token;    // Variable used to store the current token
 
