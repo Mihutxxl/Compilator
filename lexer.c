@@ -5,6 +5,7 @@
 
 #define MAX_TOKEN_LEN 256
 #define SAFEALLOC(var,Type)if((var=(Type*)malloc(sizeof(Type)))==NULL)err("not enough memory");
+#define INITIAL_CAPACITY 10
 
 //Enum for the different token types
 typedef enum {
@@ -272,13 +273,7 @@ Token get_token(const char **input) {
     // Handle other single-character tokens (operators, parentheses, etc.)
     else {
         switch (**input) {
-            //case '+': token.type = TOKEN_PLUS; break;
-            //case '-': token.type = TOKEN_MINUS; break;
             case '*': token.type = TOKEN_MULTIPLY; break;
-            //case '=': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_EQUAL) : TOKEN_ASSIGN; break;
-            //case '<': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_LESSEQUAL) : TOKEN_LESS; break;
-            //case '>': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_GREATEREQUAL) : TOKEN_GREATER; break;
-            //case '!': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_NOTEQUAL) : TOKEN_ERROR; break;
             case ';': token.type = TOKEN_SEMICOLON; break;
             case '(': token.type = TOKEN_LPAREN; break;
             case ')': token.type = TOKEN_RPAREN; break;
@@ -322,20 +317,44 @@ char *read_file(const char *filename){
 
 // Main function to process the input file
 int main(int argc, char *argv[]) {
+    // Check if the correct number of arguments is provided
     if(argc != 2) {
         printf("Usage: %s <filename>\n", argv[0]);  // Print usage message if incorrect number of arguments
         return -1;
     }
 
+    // Read the source code from the given file
     char *source = read_file(argv[1]);
-    const char *input = source;
-    Token token;
+    const char *input = source; // Pointer to traverse the source code
+    Token token;    // Variable used to store the current token
 
-    // Keep getting tokens until EOF is reached
-    while((token = get_token(&input)).type != TOKEN_EOF) {
-        printf("Token: Type=%d, Value='%s'\n", token.type, token.value);    // Print token type and value
+    // Initialize dynamic array to store tokens
+    int capacity = INITIAL_CAPACITY;
+    int token_count = 0;
+    Token *tokens = (Token *)malloc(capacity * sizeof(Token));
+    // Check if allocation was successful
+    if(!tokens) {
+        perror("Memory allocation failed for tokens!\n");
+        free(source);
+        exit(-1);
     }
 
+    // Tokenize the input until reaching EOF token
+    while((token = get_token(&input)).type != TOKEN_EOF) {
+        if(token_count >= capacity) {   // If the array is full, double its size and realocate the memory
+            capacity *= 2;
+            tokens = (Token *)realloc(tokens, capacity * sizeof(Token));
+            if(!tokens) {
+                perror("Memory reallocation failed!\n");
+                free(source);
+                exit(-1);
+            }
+        }
+        tokens[token_count++] = token;  // Store the token in the array
+        printf("Token: Type=%d, Value='%s'\n", token.type, token.value);
+    }
+
+    free(tokens);   // Free the allocated memory
     free(source);   // Free the allocated memory
     return 0;
 }
