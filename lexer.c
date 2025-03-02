@@ -8,11 +8,11 @@
 
 typedef enum {
     TOKEN_IDENTIFIER, TOKEN_NUMBER, TOKEN_STRING, TOKEN_PLUS, TOKEN_MINUS,
-    TOKEN_TIMES, TOKEN_DIVIDE, TOKEN_ASSIGN, TOKEN_SEMICOLON,
+    TOKEN_MULTIPLY, TOKEN_DIVIDE, TOKEN_ASSIGN, TOKEN_SEMICOLON,
     TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACE, TOKEN_RBRACE,
     TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_COMMENT, TOKEN_ERROR, TOKEN_EOF,
     TOKEN_LESS, TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL,
-    TOKEN_EQUAL, TOKEN_NOTEQUAL
+    TOKEN_EQUAL, TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTYLINECOMMENT
 } TokenType;
 
 typedef struct {
@@ -66,17 +66,65 @@ Token get_token(const char **input) {
             (*input)++;
         token.value[i] = '\0';
         token.type = TOKEN_STRING;
-    } else if(**input == '/' && *(*input + 1) =='/') {
-        while (**input && **input != '\n') {
-            (*input)++;
+    } else if(**input == '/') {
+        // Handle comments or division operator
+        if(*(*input + 1) == '/') {
+            // Line comment
+            int i = 0;
+            token.value[i++] = *(*input)++;  // Store first '/'
+            token.value[i++] = *(*input)++;  // Store second '/'
+            while (**input && **input != '\n') {
+                if (i < MAX_TOKEN_LEN - 1) {
+                    token.value[i++] = *(*input);
+                }
+                (*input)++;
+            }
+            token.value[i] = '\0';
+            token.type = TOKEN_LINECOMMENT;
         }
-        return get_token(input);
-    } else {
+        else if(*(*input + 1) == '*') {
+            // Multi-line comment
+            int i = 0;
+            token.value[i++] = *(*input)++;  // Store '/'
+            token.value[i++] = *(*input)++;  // Store '*'
+            // Flag to track if we've found the end of the comment
+            int found_end = 0;
+            while(**input && !found_end) {
+                if(**input == '*' && *(*input + 1) == '/') {
+                    if(i < MAX_TOKEN_LEN - 2) {
+                        token.value[i++] = *(*input)++;  // Store '*'
+                        token.value[i++] = *(*input)++;  // Store '/'
+                    } else {
+                        (*input) += 2;  // Skip anyway if buffer full
+                    }
+                    found_end = 1;
+                } else {
+                    if(i < MAX_TOKEN_LEN - 3) {  // Leave space for */ and null terminator
+                        token.value[i++] = *(*input);
+                    }
+                    (*input)++;
+                }
+                
+                if(**input == '\0') {
+                    break;
+                }
+            }
+            token.value[i] = '\0';
+            token.type = TOKEN_MULTYLINECOMMENT;
+        }
+        else {
+            // Just a division operator
+            token.type = TOKEN_DIVIDE;
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';
+        }
+    }
+    
+    else {
         switch (**input) {
             case '+': token.type = TOKEN_PLUS; break;
             case '-': token.type = TOKEN_MINUS; break;
-            case '*': token.type = TOKEN_TIMES; break;
-            case '/': token.type = TOKEN_DIVIDE; break;
+            case '*': token.type = TOKEN_MULTIPLY; break;
             case '=': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_EQUAL) : TOKEN_ASSIGN; break;
             case '<': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_LESSEQUAL) : TOKEN_LESS; break;
             case '>': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_GREATEREQUAL) : TOKEN_GREATER; break;
