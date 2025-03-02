@@ -14,7 +14,7 @@ typedef enum {
     TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_COMMENT, TOKEN_ERROR, TOKEN_EOF,
     TOKEN_LESS, TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL,
     TOKEN_EQUAL, TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTYLINECOMMENT,
-    TOKEN_CHAR_LITERAL
+    TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR
 } TokenType;
 
 //Struct to represent a token
@@ -150,6 +150,72 @@ Token get_token(const char **input) {
             token.value[0] = *(*input)++;   // Store the '/' character
             token.value[1] = '\0';  // Null-terminate the string
         }
+    } else if(**input == '=') {
+        if(*(*input + 1) == '=') {    // Equal operator (==)
+            token.value[0] = *(*input)++;
+            token.value[1] = *(*input)++;
+            token.value[2] = '\0';  // Null-terminate the string
+            token.type = TOKEN_EQUAL;
+        } else {    // Assignment operator (=)
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';  // Null-terminate the string
+            token.type = TOKEN_ASSIGN;
+        }
+    } else if(**input == '<') {
+        if(*(*input + 1) == '=') {    // Less than or equal operator (<=)
+            token.value[0] = *(*input)++;
+            token.value[1] = *(*input)++;
+            token.value[2] = '\0';  // Null-terminate the string
+            token.type = TOKEN_LESSEQUAL;
+        } else {    // Less than operator (<)
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';  // Null-terminate the string
+            token.type = TOKEN_LESS;
+        }
+    } else if(**input == '>') {
+        if(*(*input + 1) == '=') {    // Greater than or equal operator (>=)
+            token.value[0] = *(*input)++;
+            token.value[1] = *(*input)++;
+            token.value[2] = '\0';  // Null-terminate the string
+            token.type = TOKEN_GREATEREQUAL;
+        } else {    // Greater than operator (>)
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';  // Null-terminate the string
+            token.type = TOKEN_GREATER;
+        }
+    } else if(**input == '!') {
+        if(*(*input + 1) == '=') {    // Not equal operator (!=)
+            token.value[0] = *(*input)++;
+            token.value[1] = *(*input)++;
+            token.value[2] = '\0';  // Null-terminate the string
+            token.type = TOKEN_NOTEQUAL;
+        } else {    // Not operator (!)
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';  // Null-terminate the string
+            token.type = TOKEN_NOT;
+        }
+    } else if(**input == '&') {
+        if(*(*input + 1) == '&') {  // And operator (&&)
+            token.value[0] = *(*input)++;
+            token.value[1] = *(*input)++;
+            token.value[2] = '\0';  // Null-terminate the string
+            token.type = TOKEN_AND;
+        } else {    // No bitwise and for atomC
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';  // Null-terminate the string
+            token.type = TOKEN_ERROR;
+        }
+    } else if(**input == '|') {
+        if(*(*input + 1) == '|') {  // Or operator (||)
+            token.value[0] = *(*input)++;
+            token.value[1] = *(*input)++;
+            token.value[2] = '\0';  // Null-terminate the string
+            token.type = TOKEN_OR;
+        } else {    // No bitwise or for atomC
+            token.value[0] = *(*input)++;
+            token.value[1] = '\0';  // Null-terminate the string
+            token.type = TOKEN_ERROR;
+        }
     }
     // Handle other single-character tokens (operators, parentheses, etc.)
     else {
@@ -157,10 +223,10 @@ Token get_token(const char **input) {
             case '+': token.type = TOKEN_PLUS; break;
             case '-': token.type = TOKEN_MINUS; break;
             case '*': token.type = TOKEN_MULTIPLY; break;
-            case '=': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_EQUAL) : TOKEN_ASSIGN; break;
-            case '<': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_LESSEQUAL) : TOKEN_LESS; break;
-            case '>': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_GREATEREQUAL) : TOKEN_GREATER; break;
-            case '!': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_NOTEQUAL) : TOKEN_ERROR; break;
+            //case '=': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_EQUAL) : TOKEN_ASSIGN; break;
+            //case '<': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_LESSEQUAL) : TOKEN_LESS; break;
+            //case '>': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_GREATEREQUAL) : TOKEN_GREATER; break;
+            //case '!': token.type = (*(*input + 1) == '=') ? (*input += 1, TOKEN_NOTEQUAL) : TOKEN_ERROR; break;
             case ';': token.type = TOKEN_SEMICOLON; break;
             case '(': token.type = TOKEN_LPAREN; break;
             case ')': token.type = TOKEN_RPAREN; break;
