@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define MAX_TOKEN_LEN 100
+#define MAX_TOKEN_LEN 256
 #define SAFEALLOC(var,Type)if((var=(Type*)malloc(sizeof(Type)))==NULL)err("not enough memory");
 
 //Enum for the different token types
@@ -13,7 +13,8 @@ typedef enum {
     TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACE, TOKEN_RBRACE,
     TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_COMMENT, TOKEN_ERROR, TOKEN_EOF,
     TOKEN_LESS, TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL,
-    TOKEN_EQUAL, TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTYLINECOMMENT
+    TOKEN_EQUAL, TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTYLINECOMMENT,
+    TOKEN_CHAR_LITERAL
 } TokenType;
 
 //Struct to represent a token
@@ -68,7 +69,7 @@ Token get_token(const char **input) {
         token.value[i] = '\0';  // Null-terminate the string
         token.type = TOKEN_NUMBER;  // Token is a number
     } else if(**input == '"') {
-        // Handle strings (delimited by double quotes
+        // Handle strings (delimited by double quotes)
         int i = 0;
         (*input)++; // Skip the opening quote
         // Continue adding characters to token value until closing quote is found
@@ -79,6 +80,24 @@ Token get_token(const char **input) {
             (*input)++; // Skip the closing quote
         token.value[i] = '\0';  // Null-terminate the string
         token.type = TOKEN_STRING;  // Token is a string
+    } else if(**input == '\'') {
+        int i = 0;
+        token.value[i++] = *(*input)++; //Store the opening quote
+        //Handle escaped characters
+        if(**input == '\\') {
+            token.value[i++] = *(*input)++; //Store the backslash
+            if(**input) {
+                token.value[i++] = *(*input)++; //Store escaped characters
+            }
+        } else if(**input && **input != '\'') {
+            token.value[i++] = *(*input)++; //Store the character
+        }
+        //Check for closing quote
+        if(**input =='\'') {
+            token.value[i++] = *(*input)++; //Store the closing quote
+        }
+        token.value[i] = '\0';   //Null-terminate the string
+        token.type = TOKEN_CHAR_LITERAL;
     } else if(**input == '/') {
         // Handle comments or division operator
         if(*(*input + 1) == '/') {
