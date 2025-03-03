@@ -17,7 +17,7 @@ typedef enum {
     TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTILINECOMMENT,
     TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR, TOKEN_PLUS_1,
     TOKEN_MINUS_1, TOKEN_DOT, TOKEN_NUMBER_HEX, TOKEN_NUMBER_OCT,
-    TOKEN_LBRACKET, TOKEN_RBRACKET
+    TOKEN_LBRACKET, TOKEN_RBRACKET, TOKEN_REAL
 } TokenType;
 
 //Struct to represent a token
@@ -97,9 +97,49 @@ Token get_token(const char **input) {
             while(isdigit(**input)) {
                 token.value[i++] = *(*input)++;
             }
+            if(**input == '.' || **input == 'e' || **input == 'E') {    // Check if this might be a real number
+                (*input) -= i;  // Go back to the start
+                i = 0;
+                goto handle_real;   // Jump to real number handeling
+            }
             token.type = TOKEN_NUMBER_ZEC;
         }
         token.value[i++] = '\0';
+    } else if(**input == '.' && isdigit(*(*input + 1))) {   // Handle the real numbers
+        handle_real:
+            int i = 0;
+            int has_exp = 0;
+            while(isdigit(**input)) {   // Integer part
+                token.value[i++] = *(*input)++;
+            }
+            if(**input == '.') {    // Decimal point and fraction
+                token.value[i++] = *(*input)++;
+                while(isdigit(**input)) {
+                    token.value[i++] = *(*input)++;
+                }
+            }
+            if(**input == 'e' || **input == 'E') {  // Exponent part
+                has_exp = 1;
+                token.value[i++] = *(*input)++;
+                if(**input == '+' || **input == '-') {  // Handle optional signs
+                    token.value[i++] = *(*input)++;
+                }
+                if(isdigit(**input)) {
+                    while(isdigit(**input)) {
+                        token.value[i++] = *(*input)++;
+                    }
+                } else {
+                    token.type = TOKEN_ERROR;
+                    token.value[i++] = '\0';
+                    return token;
+                }
+            }
+            token.value[i++] = '\0';
+            if(has_exp || (i > 0 && token.value[0] == '.') || (strchr(token.value, '.') != NULL)) { // Valid real number must have either a decimal part or an exponent
+                token.type = TOKEN_REAL;
+            } else {
+                token.type = TOKEN_ERROR;
+            }
     } else if(**input == '"') {
         // Handle strings (delimited by double quotes)
         int i = 0;
