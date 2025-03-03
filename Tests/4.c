@@ -1,6 +1,7 @@
 int isdigit(char ch)
 {
 	return ch>='0'&&ch<='9';
+	
 }
 
 void main()

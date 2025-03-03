@@ -1,3 +1,4 @@
+
 void main()
 {
 	int		i,n,t;
