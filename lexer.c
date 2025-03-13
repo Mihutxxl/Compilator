@@ -2,29 +2,30 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include "lexer.h"
 
 #define MAX_TOKEN_LEN 256
 #define SAFEALLOC(var,Type)if((var=(Type*)malloc(sizeof(Type)))==NULL)err("not enough memory");
 #define INITIAL_CAPACITY 10
 
 //Enum for the different token types
-typedef enum {
-    TOKEN_IDENTIFIER, TOKEN_NUMBER_ZEC, TOKEN_STRING, TOKEN_PLUS, TOKEN_MINUS,
-    TOKEN_MULTIPLY, TOKEN_DIVIDE, TOKEN_ASSIGN, TOKEN_SEMICOLON,
-    TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACE, TOKEN_RBRACE,
-    TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_ERROR, TOKEN_EOF, TOKEN_LESS, 
-    TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL, TOKEN_EQUAL, 
-    TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTILINECOMMENT,
-    TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR, TOKEN_PLUS_1,
-    TOKEN_MINUS_1, TOKEN_DOT, TOKEN_NUMBER_HEX, TOKEN_NUMBER_OCT,
-    TOKEN_LBRACKET, TOKEN_RBRACKET, TOKEN_REAL
-} TokenType;
+// typedef enum {
+//     TOKEN_IDENTIFIER, TOKEN_NUMBER_ZEC, TOKEN_STRING, TOKEN_PLUS, TOKEN_MINUS,
+//     TOKEN_MULTIPLY, TOKEN_DIVIDE, TOKEN_ASSIGN, TOKEN_SEMICOLON,
+//     TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACE, TOKEN_RBRACE,
+//     TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_ERROR, TOKEN_EOF, TOKEN_LESS, 
+//     TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL, TOKEN_EQUAL, 
+//     TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTILINECOMMENT,
+//     TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR, TOKEN_PLUS_1,
+//     TOKEN_MINUS_1, TOKEN_DOT, TOKEN_NUMBER_HEX, TOKEN_NUMBER_OCT,
+//     TOKEN_LBRACKET, TOKEN_RBRACKET, TOKEN_REAL
+// } TokenType;
 
 //Struct to represent a token
-typedef struct {
-    TokenType type;
-    char value[MAX_TOKEN_LEN];
-}Token;
+// typedef struct {
+//     TokenType type;
+//     char value[MAX_TOKEN_LEN];
+// }Token;
 
 //List of the reserved keywords
 const char *keywords[] = {"if", "else", "while", "return", "int", "float", "char", "void", NULL};
@@ -360,46 +361,34 @@ char *read_file(const char *filename){
 }
 
 // Main function to process the input file
-int main(int argc, char *argv[]) {
-    // Check if the correct number of arguments is provided
-    if(argc != 2) {
-        printf("Usage: %s <filename>\n", argv[0]);  // Print usage message if incorrect number of arguments
-        return -1;
-    }
-
-    // Read the source code from the given file
-    char *source = read_file(argv[1]);
+Token *tokenize_file(const char *filename, int *token_count) {
+    char *source = read_file(filename);
+    const char *input = source;
     
-    const char *input = source; // Pointer to traverse the source code
-    Token token;    // Variable used to store the current token
-
-    // Initialize dynamic array to store tokens
     int capacity = INITIAL_CAPACITY;
-    int token_count = 0;
+    *token_count = 0;
     Token *tokens = (Token *)malloc(capacity * sizeof(Token));
-    // Check if allocation was successful
-    if(!tokens) {
+    if (!tokens) {
         perror("Memory allocation failed for tokens!\n");
         free(source);
-        exit(-1);
+        return NULL;
     }
 
-    // Tokenize the input until reaching EOF token
-    while((token = get_token(&input)).type != TOKEN_EOF) {
-        if(token_count >= capacity) {   // If the array is full, double its size and realocate the memory
+    Token token;
+    while ((token = get_token(&input)).type != TOKEN_EOF) {
+        if (*token_count >= capacity) {
             capacity *= 2;
             tokens = (Token *)realloc(tokens, capacity * sizeof(Token));
-            if(!tokens) {
+            if (!tokens) {
                 perror("Memory reallocation failed!\n");
                 free(source);
-                exit(-1);
+                return NULL;
             }
         }
-        tokens[token_count++] = token;  // Store the token in the array
-        printf("Token: Type=%d, Value='%s'\n", token.type, token.value);
+        tokens[(*token_count)++] = token;
     }
 
-    free(tokens);   // Free the allocated memory
-    free(source);   // Free the allocated memory
-    return 0;
+    free(source);
+    return tokens;  // Return dynamic array
 }
+
