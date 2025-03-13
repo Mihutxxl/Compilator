@@ -1,4 +1,4 @@
-
+int		i,s;
 int sum()
 {
 	int	 i,v[5],s;
@@ -10,10 +10,10 @@ int sum()
 	return s;
 }
 
-void main()
+/*void main()
 {
 	int		i,s;
 	for(i=0;i<=1000000;i=i--)
 	s=sum();
 	put_i(s);
-}
+}*/
