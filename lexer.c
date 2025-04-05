@@ -16,7 +16,7 @@
 //Struct to represent a token - kept in lexer.h
 
 //List of the reserved keywords
-const char *keywords[] = {"if", "else", "while", "return", "int", "float", "char", "void", NULL};
+const char *keywords[] = {"if", "else", "while", "return", "int", "float", "char", "void", "for", "double", NULL};
 
 //Function to check if a string is a keyword
 int is_keyword(const char *str) {
