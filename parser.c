@@ -256,7 +256,8 @@ bool parseTypeName(Parser* parser) {
         if (strcmp(keyword, "int") == 0 || 
             strcmp(keyword, "float") == 0 || 
             strcmp(keyword, "char") == 0 || 
-            strcmp(keyword, "void") == 0) {
+            strcmp(keyword, "void") == 0 ||
+            strcmp(keyword, "double") == 0) {
             advance(parser);
             return true;
         }
@@ -366,7 +367,7 @@ bool parseExprPrimary(Parser* parser) {
 // Parse statement
 bool parseStatement(Parser* parser) {
     Token current = getCurrentToken(parser);
-    
+    printf("DEBUG: Parsing statement at token %d: %s (type %d)\n", parser->currentIndex, current.value, current.type);
     // Block statement
     if (current.type == TOKEN_LBRACE) {
         return parseBlock(parser);
@@ -388,7 +389,8 @@ bool parseStatement(Parser* parser) {
             (strcmp(current.value, "int") == 0 || 
              strcmp(current.value, "float") == 0 || 
              strcmp(current.value, "char") == 0 || 
-             strcmp(current.value, "void") == 0)) {
+             strcmp(current.value, "void") == 0 ||
+             strcmp(current.value, "double") == 0)) {
         return parseDeclaration(parser);
     }
     // Expression statement
@@ -431,9 +433,12 @@ bool parseBlock(Parser* parser) {
 bool parseDeclaration(Parser* parser) {
     // Look ahead to see if this is a function declaration or a variable declaration
     int startPos = parser->currentIndex;
+    printf("DEBUG: Trying to parse declaration at token %d: %s\n", 
+        parser->currentIndex, getCurrentToken(parser).value);
     
     // Parse type name
     if (!parseTypeName(parser)) {
+        printf("DEBUG: Failed to parse type name in declaration\n");
         return false;
     }
     
@@ -446,6 +451,7 @@ bool parseDeclaration(Parser* parser) {
     // If next token is '(', this is a function declaration
     if (getCurrentToken(parser).type == TOKEN_LPAREN) {
         parser->currentIndex = startPos;
+        printf("DEBUG: Failed to parse identifier in declaration\n");
         return parseFunctionDeclaration(parser);
     }
     // Otherwise, it's a variable declaration
@@ -457,11 +463,17 @@ bool parseDeclaration(Parser* parser) {
 
 // Parse variable declaration
 bool parseVarDeclaration(Parser* parser) {
+    printf("DEBUG: Parsing variable declaration at token %d: %s\n", 
+        parser->currentIndex, getCurrentToken(parser).value);
     // Parse type name
     if (!parseTypeName(parser)) {
+        printf("DEBUG: Failed to parse type name\n");
         return false;
     }
     
+    printf("DEBUG: After type name, at token %d: %s\n", 
+        parser->currentIndex, getCurrentToken(parser).value);
+
     // Parse first variable
     if (!match(parser, TOKEN_IDENTIFIER)) {
         return false;
@@ -660,30 +672,46 @@ bool parseForStatement(Parser* parser) {
 
 // Parse if statement
 bool parseIfStatement(Parser* parser) {
-    if (!match(parser, TOKEN_KEYWORD) || strcmp(getCurrentToken(parser).value, "if") != 0) {
-        return false; // Removed unnecessary advance(parser)
+    // Check if the current token is "if" without advancing
+    if (getCurrentToken(parser).type != TOKEN_KEYWORD || 
+        strcmp(getCurrentToken(parser).value, "if") != 0) {
+        return false;
     }
     
+    advance(parser); // Now advance past the 'if' token
+    
     if (!match(parser, TOKEN_LPAREN)) {
+        printf("Expected '(' after 'if'\n");
         return false;
     }
     
     if (!parseExpr(parser)) {
+        printf("Failed to parse if condition\n");
         return false;
     }
     
     if (!match(parser, TOKEN_RPAREN)) {
+        printf("Expected ')' after if condition\n");
         return false;
     }
     
+    printf("Parsing if body at token %d: %s\n", 
+           parser->currentIndex, getCurrentToken(parser).value);
+    
     // Parse if body
     if (!parseStatement(parser)) {
+        printf("Failed to parse if body\n");
         return false;
     }
     
     // Parse optional else
-    if (getCurrentToken(parser).type == TOKEN_KEYWORD && strcmp(getCurrentToken(parser).value, "else") == 0) {
+    if (getCurrentToken(parser).type == TOKEN_KEYWORD && 
+        strcmp(getCurrentToken(parser).value, "else") == 0) {
         advance(parser);
+        
+        printf("Parsing else body at token %d: %s\n", 
+               parser->currentIndex, getCurrentToken(parser).value);
+        
         return parseStatement(parser);
     }
     
