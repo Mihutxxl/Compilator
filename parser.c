@@ -327,6 +327,7 @@ bool parseExprPrimary(Parser* parser) {
             
             // Parse arguments if any
             if (getCurrentToken(parser).type != TOKEN_RPAREN) {
+                // Handle all argument types, including string literals
                 if (!parseExpr(parser)) {
                     return false;
                 }
@@ -367,7 +368,9 @@ bool parseExprPrimary(Parser* parser) {
 // Parse statement
 bool parseStatement(Parser* parser) {
     Token current = getCurrentToken(parser);
-    printf("DEBUG: Parsing statement at token %d: %s (type %d)\n", parser->currentIndex, current.value, current.type);
+    printf("DEBUG: Parsing statement at token %d: %s (type %d)\n", 
+           parser->currentIndex, current.value, current.type);
+    
     // Block statement
     if (current.type == TOKEN_LBRACE) {
         return parseBlock(parser);
@@ -393,11 +396,19 @@ bool parseStatement(Parser* parser) {
              strcmp(current.value, "double") == 0)) {
         return parseDeclaration(parser);
     }
+    // Skip comments
+    else if (current.type == TOKEN_LINECOMMENT || current.type == TOKEN_MULTILINECOMMENT || 
+             (current.value[0] == '/' && 
+              (current.value[1] == '/' || current.value[1] == '*'))) {
+        advance(parser);
+        return true;
+    }
     // Expression statement
     else {
         return parseExpressionStatement(parser);
     }
 }
+
 
 // Parse block of statements
 bool parseBlock(Parser* parser) {
@@ -417,6 +428,11 @@ bool parseBlock(Parser* parser) {
                    parser->currentIndex, getCurrentToken(parser).value);
             return false;
         }
+    }
+    
+    if (getCurrentToken(parser).type == TOKEN_EOF) {
+        printf("Unexpected end of file in block\n");
+        return false;
     }
     
     if (!match(parser, TOKEN_RBRACE)) {
@@ -442,6 +458,22 @@ bool parseDeclaration(Parser* parser) {
         return false;
     }
     
+    // Check for special case of 'void main()'
+    if (startPos < parser->tokenCount && 
+        parser->tokens[startPos].type == TOKEN_KEYWORD && 
+        strcmp(parser->tokens[startPos].value, "void") == 0) {
+        
+        if (parser->currentIndex < parser->tokenCount && 
+            getCurrentToken(parser).type == TOKEN_IDENTIFIER && 
+            strcmp(getCurrentToken(parser).value, "main") == 0) {
+            
+            // This is likely a main function declaration
+            // Reset and parse as function
+            parser->currentIndex = startPos;
+            return parseFunctionDeclaration(parser);
+        }
+    }
+    
     // Parse identifier
     if (!match(parser, TOKEN_IDENTIFIER)) {
         parser->currentIndex = startPos;
@@ -451,7 +483,6 @@ bool parseDeclaration(Parser* parser) {
     // If next token is '(', this is a function declaration
     if (getCurrentToken(parser).type == TOKEN_LPAREN) {
         parser->currentIndex = startPos;
-        printf("DEBUG: Failed to parse identifier in declaration\n");
         return parseFunctionDeclaration(parser);
     }
     // Otherwise, it's a variable declaration
@@ -695,13 +726,20 @@ bool parseIfStatement(Parser* parser) {
         return false;
     }
     
-    printf("Parsing if body at token %d: %s\n", 
-           parser->currentIndex, getCurrentToken(parser).value);
+    printf("Parsing if body at token %d: %s (type %d)\n", 
+           parser->currentIndex, getCurrentToken(parser).value, getCurrentToken(parser).type);
     
     // Parse if body
     if (!parseStatement(parser)) {
         printf("Failed to parse if body\n");
-        return false;
+        // Try to recover by skipping to 'else' or next statement
+        while (parser->currentIndex < parser->tokenCount && 
+               getCurrentToken(parser).type != TOKEN_KEYWORD &&
+               strcmp(getCurrentToken(parser).value, "else") != 0 &&
+               getCurrentToken(parser).type != TOKEN_SEMICOLON &&
+               getCurrentToken(parser).type != TOKEN_RBRACE) {
+            advance(parser);
+        }
     }
     
     // Parse optional else
@@ -753,11 +791,36 @@ bool parseExpressionStatement(Parser* parser) {
         return true;
     }
     
+    printf("Trying to parse expression statement at token %d: %s (type %d)\n", 
+           parser->currentIndex, getCurrentToken(parser).value, getCurrentToken(parser).type);
+    
+    // Try to parse an expression
     if (!parseExpr(parser)) {
+        printf("Failed to parse expression in statement\n");
         return false;
     }
     
-    return match(parser, TOKEN_SEMICOLON);
+    printf("Expression parsed, expecting semicolon at token %d: %s\n", 
+           parser->currentIndex, getCurrentToken(parser).value);
+    
+    // Expect semicolon at the end
+    if (!match(parser, TOKEN_SEMICOLON)) {
+        printf("Expected semicolon after expression statement at token %d: '%s'\n", 
+               parser->currentIndex, getCurrentToken(parser).value);
+        // Attempt recovery - skip to the next semicolon or end of statement
+        while (parser->currentIndex < parser->tokenCount && 
+               getCurrentToken(parser).type != TOKEN_SEMICOLON &&
+               getCurrentToken(parser).type != TOKEN_RBRACE) {
+            advance(parser);
+        }
+        if (getCurrentToken(parser).type == TOKEN_SEMICOLON) {
+            advance(parser); // Consume the semicolon
+            return true;     // Continue parsing
+        }
+        return false;
+    }
+    
+    return true;
 }
 
 bool isComment(Token token) {

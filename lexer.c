@@ -40,6 +40,7 @@ int is_octal_digit(char c) {
 void handle_real_number(const char **input, Token *token) {
     int i = 0;
     int has_exp = 0;
+    int has_decimal = 0;
     
     // Integer part
     while(isdigit(**input)) {
@@ -48,6 +49,7 @@ void handle_real_number(const char **input, Token *token) {
     
     // Decimal point and fraction
     if(**input == '.') {
+        has_decimal = 1;
         token->value[i++] = *(*input)++;
         while(isdigit(**input)) {
             token->value[i++] = *(*input)++;
@@ -75,7 +77,7 @@ void handle_real_number(const char **input, Token *token) {
     token->value[i] = '\0';
     
     // Valid real number must have either a decimal part or an exponent
-    if(has_exp || (i > 0 && token->value[0] == '.') || (strchr(token->value, '.') != NULL)) {
+    if(has_exp || has_decimal) {
         token->type = TOKEN_REAL;
     } else {
         token->type = TOKEN_ERROR;
@@ -129,8 +131,18 @@ Token get_token(const char **input) {
                 token.value[i++] = *(*input)++;
             }
             token.type = TOKEN_NUMBER_OCT;
-        } else if(**input >= '1' && **input <='9') {
-            // Check if this might be a real number
+        } else if(**input >= '0' && **input <='9') {
+            // Check for scientific notation or decimal point
+            const char* peek = *input;
+            int is_sci_notation = 0;
+    
+            // Look ahead to see if this might be scientific notation or a decimal
+            while(isdigit(*peek)) peek++;
+            if(*peek == '.' || *peek == 'e' || *peek == 'E') {
+                handle_real_number(input, &token);
+                return token;
+
+            }
             if((*(*input + 1) == '.' && isdigit(*(*input + 2))) || 
                (isdigit(*(*input + 1)) && (*(*input + 2) == '.' || *(*input + 2) == 'e' || *(*input + 2) == 'E'))) {
                 handle_real_number(input, &token);
