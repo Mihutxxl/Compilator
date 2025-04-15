@@ -134,7 +134,7 @@ Token get_token(const char **input) {
         } else if(**input >= '0' && **input <='9') {
             // Check for scientific notation or decimal point
             const char* peek = *input;
-            int is_sci_notation = 0;
+            //int is_sci_notation = 0;
     
             // Look ahead to see if this might be scientific notation or a decimal
             while(isdigit(*peek)) peek++;

@@ -733,7 +733,7 @@ bool parseIfStatement(Parser* parser) {
     printf("Parsing if condition\n");
     
     // Parse the condition expression with special handling for complex conditions
-    int conditionStart = parser->currentIndex;
+    //int conditionStart = parser->currentIndex;
     int parenCount = 1; // We already consumed one opening parenthesis
     
     // Find the matching closing parenthesis by counting parens
