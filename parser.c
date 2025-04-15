@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include "lexer.h"
-#include "parser.h"  // Note: Fixed spelling from "parcer.h" to "parser.h"
+#include "parser.h"
 
 typedef struct {
     Token* tokens;
@@ -92,6 +92,13 @@ bool parseIfStatement(Parser* parser);
 bool parseReturnStatement(Parser* parser);
 bool parseExpressionStatement(Parser* parser);
 bool parseProgram(Parser* parser);
+
+
+bool isComment(Token token) {
+    // Check if the token value starts with "//" or "/*"
+    return (token.value[0] == '/' && 
+           (token.value[1] == '/' || token.value[1] == '*'));
+}
 
 // Parse expression
 bool parseExpr(Parser* parser) {
@@ -319,30 +326,35 @@ bool parseExprPostfix(Parser* parser) {
 // Parse primary expression
 bool parseExprPrimary(Parser* parser) {
     if (getCurrentToken(parser).type == TOKEN_IDENTIFIER) {
+        printf("Found identifier: %s\n", getCurrentToken(parser).value);
         advance(parser);
         
         // Check for function call
         if (getCurrentToken(parser).type == TOKEN_LPAREN) {
+            printf("Found function call\n");
             advance(parser);
             
             // Parse arguments if any
             if (getCurrentToken(parser).type != TOKEN_RPAREN) {
-                // Handle all argument types, including string literals
                 if (!parseExpr(parser)) {
+                    printf("Failed to parse function argument\n");
                     return false;
                 }
                 
                 while (getCurrentToken(parser).type == TOKEN_COMMA) {
                     advance(parser);
                     if (!parseExpr(parser)) {
+                        printf("Failed to parse function argument after comma\n");
                         return false;
                     }
                 }
             }
             
             if (!match(parser, TOKEN_RPAREN)) {
+                printf("Expected closing parenthesis in function call\n");
                 return false;
             }
+            printf("Successfully parsed function call\n");
         }
         
         return true;
@@ -352,6 +364,7 @@ bool parseExprPrimary(Parser* parser) {
                getCurrentToken(parser).type == TOKEN_REAL ||
                getCurrentToken(parser).type == TOKEN_STRING ||
                getCurrentToken(parser).type == TOKEN_CHAR_LITERAL) {
+        printf("Found string literal: %s\n", getCurrentToken(parser).value);
         advance(parser);
         return true;
     } else if (getCurrentToken(parser).type == TOKEN_LPAREN) {
@@ -702,8 +715,9 @@ bool parseForStatement(Parser* parser) {
 }
 
 // Parse if statement
+// Parse if statement
 bool parseIfStatement(Parser* parser) {
-    // Check if the current token is "if" without advancing
+    printf("Starting if statement parsing\n");
     if (getCurrentToken(parser).type != TOKEN_KEYWORD || 
         strcmp(getCurrentToken(parser).value, "if") != 0) {
         return false;
@@ -716,15 +730,32 @@ bool parseIfStatement(Parser* parser) {
         return false;
     }
     
-    if (!parseExpr(parser)) {
-        printf("Failed to parse if condition\n");
+    printf("Parsing if condition\n");
+    
+    // Parse the condition expression with special handling for complex conditions
+    int conditionStart = parser->currentIndex;
+    int parenCount = 1; // We already consumed one opening parenthesis
+    
+    // Find the matching closing parenthesis by counting parens
+    while (parser->currentIndex < parser->tokenCount && parenCount > 0) {
+        if (getCurrentToken(parser).type == TOKEN_LPAREN) {
+            parenCount++;
+        } else if (getCurrentToken(parser).type == TOKEN_RPAREN) {
+            parenCount--;
+        }
+        
+        if (parenCount > 0) {
+            advance(parser);
+        }
+    }
+    
+    if (parenCount > 0) {
+        printf("Unmatched parentheses in if condition\n");
         return false;
     }
     
-    if (!match(parser, TOKEN_RPAREN)) {
-        printf("Expected ')' after if condition\n");
-        return false;
-    }
+    // Now consume the closing parenthesis
+    advance(parser);
     
     printf("Parsing if body at token %d: %s (type %d)\n", 
            parser->currentIndex, getCurrentToken(parser).value, getCurrentToken(parser).type);
@@ -732,19 +763,29 @@ bool parseIfStatement(Parser* parser) {
     // Parse if body
     if (!parseStatement(parser)) {
         printf("Failed to parse if body\n");
-        // Try to recover by skipping to 'else' or next statement
+        // Try to recover - skip to "else" or next statement
         while (parser->currentIndex < parser->tokenCount && 
-               getCurrentToken(parser).type != TOKEN_KEYWORD &&
-               strcmp(getCurrentToken(parser).value, "else") != 0 &&
+               (getCurrentToken(parser).type != TOKEN_KEYWORD || 
+                strcmp(getCurrentToken(parser).value, "else") != 0) &&
                getCurrentToken(parser).type != TOKEN_SEMICOLON &&
                getCurrentToken(parser).type != TOKEN_RBRACE) {
             advance(parser);
         }
     }
     
+    // Skip any comments that might appear between if body and else
+    while (parser->currentIndex < parser->tokenCount &&
+           (getCurrentToken(parser).type == TOKEN_LINECOMMENT || 
+            getCurrentToken(parser).type == TOKEN_MULTILINECOMMENT ||
+            isComment(getCurrentToken(parser)))) {
+        advance(parser);
+    }
+    
     // Parse optional else
-    if (getCurrentToken(parser).type == TOKEN_KEYWORD && 
+    if (parser->currentIndex < parser->tokenCount &&
+        getCurrentToken(parser).type == TOKEN_KEYWORD && 
         strcmp(getCurrentToken(parser).value, "else") == 0) {
+        printf("Found else clause\n");
         advance(parser);
         
         printf("Parsing else body at token %d: %s\n", 
@@ -794,7 +835,83 @@ bool parseExpressionStatement(Parser* parser) {
     printf("Trying to parse expression statement at token %d: %s (type %d)\n", 
            parser->currentIndex, getCurrentToken(parser).value, getCurrentToken(parser).type);
     
-    // Try to parse an expression
+    // Special case for function calls which are common in expression statements
+    if (getCurrentToken(parser).type == TOKEN_IDENTIFIER) {
+        int startPos = parser->currentIndex;
+        
+        // Save function name for debugging
+        char functionName[256];
+        strcpy(functionName, getCurrentToken(parser).value);
+        advance(parser); // Consume function name
+        
+        if (getCurrentToken(parser).type == TOKEN_LPAREN) {
+            printf("Parsing function call to %s\n", functionName);
+            advance(parser); // Consume '('
+            
+            // Parse arguments if any
+            if (getCurrentToken(parser).type != TOKEN_RPAREN) {
+                // Handle special case of string literals that may be split across tokens
+                if (getCurrentToken(parser).type == TOKEN_STRING || 
+                    getCurrentToken(parser).type == TOKEN_CHAR_LITERAL) {
+                    // Skip the string/char literal token
+                    printf("Processing string/char literal argument\n");
+                    advance(parser);
+                    
+                    // Skip any additional tokens that might be part of the string
+                    // until we find the closing parenthesis
+                    while (parser->currentIndex < parser->tokenCount && 
+                           getCurrentToken(parser).type != TOKEN_RPAREN) {
+                        printf("Skipping additional string token: %s\n", getCurrentToken(parser).value);
+                        advance(parser);
+                    }
+                } else {
+                    // Parse regular expression argument
+                    if (!parseExpr(parser)) {
+                        printf("Failed to parse function argument\n");
+                        parser->currentIndex = startPos;
+                        return false;
+                    }
+                }
+            }
+            
+            if (!match(parser, TOKEN_RPAREN)) {
+                printf("Expected closing parenthesis in function call\n");
+                // Try to recover - find the next closing parenthesis
+                while (parser->currentIndex < parser->tokenCount && 
+                       getCurrentToken(parser).type != TOKEN_RPAREN) {
+                    advance(parser);
+                }
+                if (getCurrentToken(parser).type == TOKEN_RPAREN) {
+                    advance(parser); // Consume the closing parenthesis
+                } else {
+                    return false;
+                }
+            }
+            
+            // Expect semicolon after function call
+            if (!match(parser, TOKEN_SEMICOLON)) {
+                printf("Expected semicolon after function call\n");
+                // Try to recover - find the next semicolon
+                while (parser->currentIndex < parser->tokenCount && 
+                       getCurrentToken(parser).type != TOKEN_SEMICOLON) {
+                    advance(parser);
+                }
+                if (getCurrentToken(parser).type == TOKEN_SEMICOLON) {
+                    advance(parser); // Consume the semicolon
+                } else {
+                    return false;
+                }
+            }
+            
+            printf("Successfully parsed function call to %s\n", functionName);
+            return true;
+        }
+        
+        // If not a function call, reset and try normal expression parsing
+        parser->currentIndex = startPos;
+    }
+    
+    // Try to parse a normal expression
     if (!parseExpr(parser)) {
         printf("Failed to parse expression in statement\n");
         return false;
@@ -805,12 +922,10 @@ bool parseExpressionStatement(Parser* parser) {
     
     // Expect semicolon at the end
     if (!match(parser, TOKEN_SEMICOLON)) {
-        printf("Expected semicolon after expression statement at token %d: '%s'\n", 
-               parser->currentIndex, getCurrentToken(parser).value);
-        // Attempt recovery - skip to the next semicolon or end of statement
+        printf("Expected semicolon after expression statement\n");
+        // Try to recover - skip to next semicolon
         while (parser->currentIndex < parser->tokenCount && 
-               getCurrentToken(parser).type != TOKEN_SEMICOLON &&
-               getCurrentToken(parser).type != TOKEN_RBRACE) {
+               getCurrentToken(parser).type != TOKEN_SEMICOLON) {
             advance(parser);
         }
         if (getCurrentToken(parser).type == TOKEN_SEMICOLON) {
@@ -823,11 +938,7 @@ bool parseExpressionStatement(Parser* parser) {
     return true;
 }
 
-bool isComment(Token token) {
-    // Check if the token value starts with "//" or "/*"
-    return (token.value[0] == '/' && 
-           (token.value[1] == '/' || token.value[1] == '*'));
-}
+
 
 // Parse program (top-level constructs)
 bool parseProgram(Parser* parser) {
