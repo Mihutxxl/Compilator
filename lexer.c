@@ -2,32 +2,21 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include "lexer.h"
 
 #define MAX_TOKEN_LEN 256
-#define SAFEALLOC(var,Type)if((var=(Type*)malloc(sizeof(Type)))==NULL)err("not enough memory");
+#define SAFEALLOC(var,Type) if((var=(Type*)malloc(sizeof(Type)))==NULL) { \
+    fprintf(stderr, "not enough memory\n"); \
+    exit(1); \
+}
 #define INITIAL_CAPACITY 10
 
-//Enum for the different token types
-typedef enum {
-    TOKEN_IDENTIFIER, TOKEN_NUMBER_ZEC, TOKEN_STRING, TOKEN_PLUS, TOKEN_MINUS,
-    TOKEN_MULTIPLY, TOKEN_DIVIDE, TOKEN_ASSIGN, TOKEN_SEMICOLON,
-    TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACE, TOKEN_RBRACE,
-    TOKEN_COMMA, TOKEN_KEYWORD, TOKEN_ERROR, TOKEN_EOF, TOKEN_LESS, 
-    TOKEN_GREATER, TOKEN_LESSEQUAL, TOKEN_GREATEREQUAL, TOKEN_EQUAL, 
-    TOKEN_NOTEQUAL, TOKEN_LINECOMMENT, TOKEN_MULTILINECOMMENT,
-    TOKEN_CHAR_LITERAL, TOKEN_NOT, TOKEN_AND, TOKEN_OR, TOKEN_PLUS_1,
-    TOKEN_MINUS_1, TOKEN_DOT, TOKEN_NUMBER_HEX, TOKEN_NUMBER_OCT,
-    TOKEN_LBRACKET, TOKEN_RBRACKET, TOKEN_REAL
-} TokenType;
+//Enum for the different token types - kept in lexer.h
 
-//Struct to represent a token
-typedef struct {
-    TokenType type;
-    char value[MAX_TOKEN_LEN];
-}Token;
+//Struct to represent a token - kept in lexer.h
 
 //List of the reserved keywords
-const char *keywords[] = {"if", "else", "while", "return", "int", "float", "char", "void", NULL};
+const char *keywords[] = {"if", "else", "while", "return", "int", "float", "char", "void", "for", "double", NULL};
 
 //Function to check if a string is a keyword
 int is_keyword(const char *str) {
@@ -47,6 +36,54 @@ int is_octal_digit(char c) {
     return c >= '0' && c <= '7';
 }
 
+// Helper function to handle real number tokenization
+void handle_real_number(const char **input, Token *token) {
+    int i = 0;
+    int has_exp = 0;
+    int has_decimal = 0;
+    
+    // Integer part
+    while(isdigit(**input)) {
+        token->value[i++] = *(*input)++;
+    }
+    
+    // Decimal point and fraction
+    if(**input == '.') {
+        has_decimal = 1;
+        token->value[i++] = *(*input)++;
+        while(isdigit(**input)) {
+            token->value[i++] = *(*input)++;
+        }
+    }
+    
+    // Exponent part
+    if(**input == 'e' || **input == 'E') {
+        has_exp = 1;
+        token->value[i++] = *(*input)++;
+        if(**input == '+' || **input == '-') {
+            token->value[i++] = *(*input)++;
+        }
+        if(isdigit(**input)) {
+            while(isdigit(**input)) {
+                token->value[i++] = *(*input)++;
+            }
+        } else {
+            token->type = TOKEN_ERROR;
+            token->value[i] = '\0';
+            return;
+        }
+    }
+    
+    token->value[i] = '\0';
+    
+    // Valid real number must have either a decimal part or an exponent
+    if(has_exp || has_decimal) {
+        token->type = TOKEN_REAL;
+    } else {
+        token->type = TOKEN_ERROR;
+    }
+}
+
 //Function to retrieve the next token from the input string
 Token get_token(const char **input) {
     Token token;    //Initialize token struct
@@ -54,7 +91,7 @@ Token get_token(const char **input) {
 
     //Skip all the whitespaces
     while(isspace(**input)){
-        (*input)++; //Move to the next charecter
+        (*input)++; //Move to the next character
     }
 
     //If we reach the end of the string, return an EOF token
@@ -63,7 +100,7 @@ Token get_token(const char **input) {
         return token;
     }
 
-    //Handel identifiers (Starts with a letter or an underscore)
+    //Handle identifiers (Starts with a letter or an underscore)
     if(isalpha(**input) || **input == '_') {
         int i = 0;
         // Continue adding characters to token value as long as they are alphanumeric or underscore
@@ -75,6 +112,7 @@ Token get_token(const char **input) {
     } else if(isdigit(**input)) {
         // Handle numbers (digits only)
         int i = 0;
+        
         // Hexadecimal: starts with '0x'
         if(**input == '0' && (*(*input + 1) == 'x' || *(*input + 1) == 'X')) {
             token.value[i++] = *(*input)++; // '0'
@@ -93,53 +131,32 @@ Token get_token(const char **input) {
                 token.value[i++] = *(*input)++;
             }
             token.type = TOKEN_NUMBER_OCT;
-        } else if(**input >= '1' && **input <='9') {
+        } else if(**input >= '0' && **input <='9') {
+            // Check for scientific notation or decimal point
+            const char* peek = *input;
+            int is_sci_notation = 0;
+    
+            // Look ahead to see if this might be scientific notation or a decimal
+            while(isdigit(*peek)) peek++;
+            if(*peek == '.' || *peek == 'e' || *peek == 'E') {
+                handle_real_number(input, &token);
+                return token;
+
+            }
+            if((*(*input + 1) == '.' && isdigit(*(*input + 2))) || 
+               (isdigit(*(*input + 1)) && (*(*input + 2) == '.' || *(*input + 2) == 'e' || *(*input + 2) == 'E'))) {
+                handle_real_number(input, &token);
+                return token;
+            }
+            
             while(isdigit(**input)) {
                 token.value[i++] = *(*input)++;
             }
-            if(**input == '.' || **input == 'e' || **input == 'E') {    // Check if this might be a real number
-                (*input) -= i;  // Go back to the start
-                i = 0;
-                goto handle_real;   // Jump to real number handeling
-            }
             token.type = TOKEN_NUMBER_ZEC;
         }
-        token.value[i++] = '\0';
+        token.value[i] = '\0';
     } else if(**input == '.' && isdigit(*(*input + 1))) {   // Handle the real numbers
-        handle_real:
-            int i = 0;
-            int has_exp = 0;
-            while(isdigit(**input)) {   // Integer part
-                token.value[i++] = *(*input)++;
-            }
-            if(**input == '.') {    // Decimal point and fraction
-                token.value[i++] = *(*input)++;
-                while(isdigit(**input)) {
-                    token.value[i++] = *(*input)++;
-                }
-            }
-            if(**input == 'e' || **input == 'E') {  // Exponent part
-                has_exp = 1;
-                token.value[i++] = *(*input)++;
-                if(**input == '+' || **input == '-') {  // Handle optional signs
-                    token.value[i++] = *(*input)++;
-                }
-                if(isdigit(**input)) {
-                    while(isdigit(**input)) {
-                        token.value[i++] = *(*input)++;
-                    }
-                } else {
-                    token.type = TOKEN_ERROR;
-                    token.value[i++] = '\0';
-                    return token;
-                }
-            }
-            token.value[i++] = '\0';
-            if(has_exp || (i > 0 && token.value[0] == '.') || (strchr(token.value, '.') != NULL)) { // Valid real number must have either a decimal part or an exponent
-                token.type = TOKEN_REAL;
-            } else {
-                token.type = TOKEN_ERROR;
-            }
+        handle_real_number(input, &token);
     } else if(**input == '"') {
         // Handle strings (delimited by double quotes)
         int i = 0;
@@ -304,11 +321,11 @@ Token get_token(const char **input) {
             token.value[0] = *(*input)++;
             token.value[1] = *(*input)++;
             token.value[2] = '\0';  // Null-terminate the string
-            token.type = TOKEN_PLUS_1;
+            token.type = TOKEN_MINUS_1;  // Fixed: was TOKEN_PLUS_1
         } else {    // - operator
             token.value[0] = *(*input)++;
             token.value[1] = '\0';  // Null-terminate the string
-            token.type = TOKEN_PLUS;
+            token.type = TOKEN_MINUS;  // Fixed: was TOKEN_PLUS
         }
     }
     // Handle other single-character tokens (operators, parentheses, etc.)
@@ -338,68 +355,70 @@ char *read_file(const char *filename){
     FILE *file = fopen(filename, "rb");  // Open the file in read mode
     
     if(!file) {
-        perror("Error opening file\n"); // Print error if file cannot be opened
-        exit(-1);
+        fprintf(stderr, "Error opening file: %s\n", filename);
+        exit(1);
     }
+    
     // Find the file length
     fseek(file, 0, SEEK_END); 
     long length = ftell(file);
     fseek(file, 0, SEEK_SET);
+    
     // Allocate memory for the file content
     char *buffer = (char *)malloc(length + 1);
     if(!buffer){
-        perror("Memory allocation failure\n");  // Print error if memory allocation fails
-        exit(-1);
+        fprintf(stderr, "Memory allocation failure\n");
+        fclose(file);
+        exit(1);
     }
     
     // Read file content into buffer
-    fread(buffer, 1, length, file);
-    buffer[length] = '\0';  // Null-terminate the string
+    size_t bytes_read = fread(buffer, 1, length, file);
+    if (bytes_read < (size_t)length) {
+        fprintf(stderr, "Warning: Only read %zu of %ld bytes\n", bytes_read, length);
+    }
+    
+    buffer[bytes_read] = '\0';  // Null-terminate the string
     fclose(file);   // Close the file
     return buffer;  // Return the file content
 }
 
+// Function to handle errors
+void err(const char *message) {
+    fprintf(stderr, "%s\n", message);
+    exit(1);
+}
+
 // Main function to process the input file
-int main(int argc, char *argv[]) {
-    // Check if the correct number of arguments is provided
-    if(argc != 2) {
-        printf("Usage: %s <filename>\n", argv[0]);  // Print usage message if incorrect number of arguments
-        return -1;
-    }
-
-    // Read the source code from the given file
-    char *source = read_file(argv[1]);
+Token *tokenize_file(const char *filename, int *token_count) {
+    char *source = read_file(filename);
+    const char *input = source;
     
-    const char *input = source; // Pointer to traverse the source code
-    Token token;    // Variable used to store the current token
-
-    // Initialize dynamic array to store tokens
     int capacity = INITIAL_CAPACITY;
-    int token_count = 0;
+    *token_count = 0;
     Token *tokens = (Token *)malloc(capacity * sizeof(Token));
-    // Check if allocation was successful
-    if(!tokens) {
-        perror("Memory allocation failed for tokens!\n");
+    if (!tokens) {
+        fprintf(stderr, "Memory allocation failed for tokens!\n");
         free(source);
-        exit(-1);
+        return NULL;
     }
 
-    // Tokenize the input until reaching EOF token
-    while((token = get_token(&input)).type != TOKEN_EOF) {
-        if(token_count >= capacity) {   // If the array is full, double its size and realocate the memory
+    Token token;
+    while ((token = get_token(&input)).type != TOKEN_EOF) {
+        if (*token_count >= capacity) {
             capacity *= 2;
-            tokens = (Token *)realloc(tokens, capacity * sizeof(Token));
-            if(!tokens) {
-                perror("Memory reallocation failed!\n");
+            Token *new_tokens = (Token *)realloc(tokens, capacity * sizeof(Token));
+            if (!new_tokens) {
+                fprintf(stderr, "Memory reallocation failed!\n");
+                free(tokens);
                 free(source);
-                exit(-1);
+                return NULL;
             }
+            tokens = new_tokens;
         }
-        tokens[token_count++] = token;  // Store the token in the array
-        printf("Token: Type=%d, Value='%s'\n", token.type, token.value);
+        tokens[(*token_count)++] = token;
     }
 
-    free(tokens);   // Free the allocated memory
-    free(source);   // Free the allocated memory
-    return 0;
+    free(source);
+    return tokens;  // Return dynamic array
 }
