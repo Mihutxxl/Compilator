@@ -2,7 +2,7 @@
 #define COMPILATOR_H
 
 #include "lexer.h"
-#include "syntact.h"
+#include "parser.h"
 
 int main(int argc, char *argv[]);
 
